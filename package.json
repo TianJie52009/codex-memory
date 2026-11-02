@@ -1,0 +1,10 @@
+{
+  "name": "codex-memory-ui-checks",
+  "private": true,
+  "scripts": {
+    "test:ui": "node test_browser.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}
