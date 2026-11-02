@@ -13,7 +13,7 @@ import time
 import unicodedata
 from datetime import datetime, timezone
 
-VERSION = '1.5.0'
+VERSION = '1.5.1'
 KINDS = {'fact', 'preference', 'decision', 'workflow', 'state', 'reference'}
 ID = re.compile(r'm-[0-9a-f]{24}\Z')
 SOURCE_ID = re.compile(r's-[0-9a-f]{24}\Z')

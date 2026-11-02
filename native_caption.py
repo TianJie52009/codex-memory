@@ -16,6 +16,7 @@ class WindowCaption:
         self.profile=Path(profile);self.process=None;self.target=None;self.session=None
         self.reader=None;self.writer=None;self.responses=queue.Queue();self.sequence=0
         self.lock=threading.Lock();self.command_lock=threading.Lock();self.overlay=False
+        self.connected=threading.Event();self.hwnd=None
 
     def _find_edge(self):
         for variable in ('ProgramFiles(x86)','ProgramFiles','LOCALAPPDATA'):
@@ -37,7 +38,9 @@ class WindowCaption:
                     if 'id' in message:responses.put(message)
                     elif message.get('method')=='Target.targetDestroyed' and message.get('params',{}).get('targetId')==self.target:self.target=None
         except (OSError,ValueError):pass
-        finally:responses.put(None)
+        finally:
+            if responses is self.responses:self.connected.clear()
+            responses.put(None)
 
     def command(self,method,params=None,session=None,timeout=30):
         with self.command_lock:
@@ -74,6 +77,7 @@ class WindowCaption:
         finally:
             os.close(child_read);os.close(child_write)
         self.responses=queue.Queue();self.session=None
+        self.connected.set()
         threading.Thread(target=self._read,args=(self.reader,self.responses),daemon=True,name='memory-app-pipe').start()
         self.session=self.command('Target.attachToBrowserTarget')['sessionId']
         self.command('Target.setDiscoverTargets',{'discover':True})
@@ -83,23 +87,38 @@ class WindowCaption:
         if parts.scheme!='http' or parts.hostname!='127.0.0.1' or parts.path!='/':raise ValueError('仅允许本地记忆面板地址')
         base='http://127.0.0.1:'+str(parts.port)+'/'
         with self.lock:
-            if self.process is None or self.process.poll() is not None:
-                self.close()
-                try:self._start()
-                except Exception:self.close();raise
-            if self.target:
-                try:
-                    existing=self.command('Target.getTargetInfo',{'targetId':self.target})['targetInfo']
-                    if existing['url'].startswith(base):
-                        window=self.command('Browser.getWindowForTarget',{'targetId':self.target})
-                        if window['bounds']['windowState']=='minimized':self.command('Browser.setWindowBounds',{'windowId':window['windowId'],'bounds':{'windowState':'normal'}})
-                        self.command('Target.activateTarget',{'targetId':self.target});return
-                except RuntimeError:self.target=None
-            self.command('PWA.install',{'manifestId':base,'installUrlOrBundleUrl':base})
-            self.command('PWA.changeAppUserSettings',{'manifestId':base,'displayMode':'standalone'})
-            self.target=self.command('PWA.launch',{'manifestId':base,'url':url})['targetId']
+            for attempt in range(2):
+                try:return self._open(url,base)
+                except (OSError,RuntimeError) as error:
+                    if self.connected.is_set():raise
+                    self.close()
+                    if attempt:raise RuntimeError('浏览器连接未建立；请关闭旧的 Edge 记忆窗口后，从“打开记忆面板”重新打开。') from error
+
+    def _open(self,url,base):
+        if self.process is None or self.process.poll() is not None or not self.connected.is_set():
+            self.close()
+            try:self._start()
+            except Exception:self.close();raise
+        if self.target:
+            try:
+                existing=self.command('Target.getTargetInfo',{'targetId':self.target})['targetInfo']
+                if existing['url'].startswith(base):
+                    window=self.command('Browser.getWindowForTarget',{'targetId':self.target})
+                    if window['bounds']['windowState']=='minimized':self.command('Browser.setWindowBounds',{'windowId':window['windowId'],'bounds':{'windowState':'normal'}})
+                    self.command('Target.activateTarget',{'targetId':self.target});return
+            except RuntimeError:self.target=None
+        self.command('PWA.install',{'manifestId':base,'installUrlOrBundleUrl':base})
+        self.command('PWA.changeAppUserSettings',{'manifestId':base,'displayMode':'standalone'})
+        self.target=self.command('PWA.launch',{'manifestId':base,'url':url})['targetId']
+        from windows_taskbar import bind_window
+        self.hwnd=bind_window(self.process.pid,self.profile.parent.parent)
 
     def close(self):
+        if self.hwnd:
+            from windows_taskbar import clear_window
+            try:clear_window(self.hwnd,self.process.pid,self.profile.parent.parent)
+            except OSError:pass
+            self.hwnd=None
         if self.process and self.process.poll() is None:
             try:self.command('Browser.close',timeout=3)
             except (OSError,RuntimeError):pass
@@ -110,6 +129,7 @@ class WindowCaption:
                 try:stream.close()
                 except OSError:pass
         self.writer=None;self.reader=None;self.target=None;self.session=None
+        self.connected.clear()
 
     def status(self):
-        return {'engine':'Microsoft Edge PWA','opened':bool(self.target),'overlay':self.overlay}
+        return {'engine':'Microsoft Edge PWA','opened':bool(self.target) and self.connected.is_set(),'overlay':self.overlay}

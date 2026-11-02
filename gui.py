@@ -216,7 +216,7 @@ def create_server(root, assets=None, port=0):
     return server
 
 
-def run(root):
+def run(root,background=False):
     store=MemoryStore(root);state_file=store._safe(store.data/'gui-state.json')
     port_file=store._safe(store.data/'gui-port.json')
     with store.locked():
@@ -225,8 +225,9 @@ def run(root):
                 state=json.loads(state_file.read_text(encoding='utf-8'));base='http://127.0.0.1:'+str(int(state['port']))
                 with urlopen(Request(base+'/api/ping',headers={'Authorization':'Bearer '+state['token']}),timeout=2) as response:ping=json.load(response)
                 if ping.get('app')=='codex-memory' and ping.get('root')==str(store.root) and ping.get('version')==VERSION:
-                    request=Request(base+'/api/open-window',data=b'{}',headers={'Authorization':'Bearer '+state['token'],'Origin':base,'Content-Type':'application/json'})
-                    with urlopen(request,timeout=5):pass
+                    if not background:
+                        request=Request(base+'/api/open-window',data=b'{}',headers={'Authorization':'Bearer '+state['token'],'Origin':base,'Content-Type':'application/json'})
+                        with urlopen(request,timeout=5):pass
                     return
             except (OSError,ValueError,KeyError):pass
         port=0
@@ -236,9 +237,9 @@ def run(root):
         except (OSError,ValueError):pass
         server=create_server(root,port=port);atomic(port_file,json.dumps(server.server_port))
         state={'port':server.server_port,'token':server.token,'pid':os.getpid()};atomic(state_file,json.dumps(state))
-    server.launch_window()
+    if not background:server.launch_window()
     try:
-        while time.monotonic()-server.last_active<300:server.handle_request()
+        while True:server.handle_request()
     finally:
         server.caption.close()
         server.server_close()
@@ -247,8 +248,10 @@ def run(root):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--root',type=Path,default=Path('D:/codex-memory'));args=parser.parse_args()
-    try:run(args.root)
+    parser=argparse.ArgumentParser();parser.add_argument('--root',type=Path,default=Path('D:/codex-memory'))
+    parser.add_argument('--background',action='store_true',help='仅启动后台服务，不打开窗口')
+    args=parser.parse_args()
+    try:run(args.root,args.background)
     except Exception as error:
         if sys.stdout:raise
         if os.name=='nt':

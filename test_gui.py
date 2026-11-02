@@ -3,11 +3,12 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch,Mock
 from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-from gui import create_server
+from gui import create_server,run
 
 
 class GuiTests(unittest.TestCase):
@@ -152,6 +153,22 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(self.request('/api/window-state',{'overlay':True},{'Origin':'https://attacker.example'})[0],403)
         self.assertTrue(self.request('/api/window-state',{'overlay':True})[1]['overlay'])
         self.assertEqual(self.request('/api/window-action',{'action':'close','hwnd':1})[0],404)
+
+    def test_background_reuses_server_without_opening_window(self):
+        path=Path(self.temp.name)/'data/gui-state.json'
+        path.write_text(json.dumps({'port':self.server.server_port,'token':self.server.token}),encoding='utf-8')
+        with patch.object(self.server,'launch_window') as launch:
+            run(self.temp.name,background=True)
+            launch.assert_not_called()
+
+    def test_idle_background_service_does_not_exit_after_five_minutes(self):
+        fake=Mock(server_port=12345,token='test-only',last_active=-10000)
+        fake.handle_request.side_effect=KeyboardInterrupt
+        with tempfile.TemporaryDirectory() as root,patch('gui.create_server',return_value=fake):
+            with self.assertRaises(KeyboardInterrupt):run(root,background=True)
+        fake.handle_request.assert_called_once()
+        fake.launch_window.assert_not_called()
+        fake.caption.close.assert_called_once()
 
 
 if __name__=='__main__':

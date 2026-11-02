@@ -10,6 +10,8 @@ import time
 import unittest
 
 from gui import create_server
+from store import VERSION
+from windows_taskbar import _properties,app_id
 
 
 def capture(hwnd):
@@ -42,29 +44,15 @@ def capture(hwnd):
         gdi.SelectObject(memory,prior);gdi.DeleteObject(bitmap);gdi.DeleteDC(memory);user.ReleaseDC(hwnd,source)
 
 
-def capture_owned(pid,title,destination):
+def capture_owned(pid,hwnd,identity,destination):
     user=ctypes.WinDLL('user32',use_last_error=True)
-    callback=ctypes.WINFUNCTYPE(w.BOOL,w.HWND,w.LPARAM)
-    user.EnumWindows.argtypes=[callback,w.LPARAM]
-    user.GetWindowTextW.argtypes=[w.HWND,w.LPWSTR,ctypes.c_int]
     user.GetClassNameW.argtypes=[w.HWND,w.LPWSTR,ctypes.c_int]
     user.GetWindowThreadProcessId.argtypes=[w.HWND,ctypes.POINTER(w.DWORD)]
-    found=[]
-    @callback
-    def visit(hwnd,_):
-        owner=w.DWORD();name=ctypes.create_unicode_buffer(512);kind=ctypes.create_unicode_buffer(128)
-        user.GetWindowThreadProcessId(hwnd,ctypes.byref(owner))
-        if owner.value!=pid:return True
-        user.GetWindowTextW(hwnd,name,len(name));user.GetClassNameW(hwnd,kind,len(kind))
-        if name.value==title and kind.value=='Chrome_WidgetWin_1':found.append(hwnd)
-        return True
-    deadline=time.monotonic()+4
-    while time.monotonic()<deadline:
-        found.clear();user.EnumWindows(visit,0)
-        if len(found)==1:break
-        time.sleep(.05)
-    if len(found)!=1:raise AssertionError('Isolated app window match count: '+str(len(found)))
-    shot=capture(found[0]);shot.save(destination)
+    owner=w.DWORD();kind=ctypes.create_unicode_buffer(128)
+    user.GetWindowThreadProcessId(hwnd,ctypes.byref(owner));user.GetClassNameW(hwnd,kind,len(kind))
+    if owner.value!=pid or kind.value!='Chrome_WidgetWin_1' or _properties(hwnd=hwnd)[5]!=identity:
+        raise AssertionError('Isolated app window identity changed')
+    shot=capture(hwnd);shot.save(destination)
     # Sample the complete window, including the area occupied by the old native title bar.
     return {'top':'#'+bytes(shot.getpixel((shot.width//2,25))).hex(),'toolbar':'#'+bytes(shot.getpixel((shot.width//2,65))).hex(),'width':shot.width,'height':shot.height,'cropped':False}
 
@@ -74,6 +62,12 @@ class NativeWindowTests(unittest.TestCase):
     def test_pwa_full_window_and_controls(self):
         with tempfile.TemporaryDirectory(prefix='memory-native-pwa-',ignore_cleanup_errors=True) as root:
             server=create_server(root);server.admin.preferences({'theme':'dark'})
+            # PWA install/uninstall must never share the user's real shortcut name.
+            original=server.RequestHandlerClass.respond
+            def respond(handler,status,value,json_body=True):
+                if handler.path=='/manifest.webmanifest' and isinstance(value,dict):value={**value,'name':'Codex Memory Native Test '+str(server.server_port)}
+                return original(handler,status,value,json_body)
+            server.RequestHandlerClass.respond=respond
             thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
             base='http://127.0.0.1:'+str(server.server_port)+'/'
             app=server.caption;page_session=None
@@ -89,14 +83,19 @@ class NativeWindowTests(unittest.TestCase):
                 raise AssertionError('Timed out: '+expression)
             def frame(name,color):
                 destination=Path(os.environ.get('NATIVE_CAPTURE_DIR',str(Path(__file__).parent/'assets')))/('native-window-pwa-'+name+'.png')
-                result=capture_owned(app.process.pid,title,destination)
+                result=capture_owned(app.process.pid,app.hwnd,app_id(root),destination)
                 self.assertFalse(result['cropped']);self.assertEqual(result['top'],color);self.assertEqual(result['toolbar'],color)
             try:
                 app.open(base+'#'+server.token)
                 pages=[item for item in app.command('Target.getTargets')['targetInfos'] if item['type']=='page' and item['url'].startswith(base)]
                 self.assertEqual(len(pages),1)
                 page_session=app.command('Target.attachToTarget',{'targetId':pages[0]['targetId'],'flatten':True})['sessionId']
-                until("document.querySelector('#app-version')?.textContent.includes('1.5.0') && navigator.windowControlsOverlay?.visible && document.documentElement.dataset.overlay==='true'")
+                until("document.querySelector('#app-version')?.textContent.includes("+json.dumps(VERSION)+") && navigator.windowControlsOverlay?.visible && document.documentElement.dataset.overlay==='true'")
+                taskbar=_properties(hwnd=app.hwnd)
+                self.assertEqual(taskbar[5],app_id(root))
+                self.assertIn('pythonw.exe',taskbar[2])
+                self.assertIn(str(Path(root).resolve()/'gui.py').casefold(),taskbar[2].casefold())
+                self.assertNotIn('msedge',taskbar[2])
                 title='Codex Memory · 本地记忆 [native-test-'+str(time.time_ns())+']'
                 evaluate('document.title='+json.dumps(title))
                 pages=[item for item in app.command('Target.getTargets')['targetInfos'] if item['type']=='page']
@@ -135,6 +134,9 @@ class NativeWindowTests(unittest.TestCase):
                 self.assertEqual(len([item for item in app.command('Target.getTargets')['targetInfos'] if item['type']=='page']),1)
                 app.close();app.open(base+'#'+server.token)
                 self.assertEqual(len([item for item in app.command('Target.getTargets')['targetInfos'] if item['type']=='page']),1,'Browser restart restored extra windows')
+                for _ in range(3):
+                    app.command('Target.closeTarget',{'targetId':app.target});app.open(base+'#'+server.token)
+                    self.assertEqual(len([item for item in app.command('Target.getTargets')['targetInfos'] if item['type']=='page']),1)
             finally:
                 if app.target:
                     try:app.command('PWA.uninstall',{'manifestId':base})

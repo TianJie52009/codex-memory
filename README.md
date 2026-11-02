@@ -8,7 +8,7 @@
 
 Inspectable memory. Local files. Shared across harnesses.
 
-<img src="assets/badges.svg" width="470" alt="v1.5.0 · Windows · Python 3.11+ · Local MCP">
+<img src="assets/badges.svg" width="470" alt="v1.5.1 · Windows · Python 3.11+ · Local MCP">
 
 [开始使用](#开始使用) · [Claude Code](#claude-code) · [DeepSeek Harness](#deepseek-harness) · [记忆机制](#记忆机制) · [开发](#开发)
 
@@ -48,6 +48,8 @@ Inspectable memory. Local files. Shared across harnesses.
 
 面板使用独立配置 `data/ui-edge`，不恢复日常浏览器的窗口、扩展或固定标签页；重复打开会聚焦已有面板。升级会保留现有记忆和界面偏好。更新后关闭旧版窗口，再从原快捷方式打开。
 
+关闭面板后，本地后台服务继续运行，不再空闲五分钟自动退出。桌面和任务栏入口都应启动 Python 服务后再打开面板；从1.5.0升级时，请取消固定旧的 Edge 图标，再从新版运行窗口重新固定一次。不要把临时测试窗口固定到任务栏。
+
 下面统一用 `D:\codex-memory` 举例，可以替换为自己的固定绝对路径。命令中的 Python 必须是安装了本项目依赖的同一个解释器。
 
 ### 安装与打开
@@ -62,6 +64,16 @@ python -X utf8 install.py --target D:\codex-memory
 安装器会保留现有数据、备份改动的文件，并注册 **Codex** 的 MCP 与短使用规则。之后双击桌面 **Codex Memory** 或目标目录内的 **打开记忆面板.lnk** 即可，日常不需要终端。
 
 **只用 Claude Code / DSH，不想写入 Codex 配置：** 将源码解压到固定目录（如 `D:\codex-memory`），在该目录安装 `requirements.txt`，直接按下文注册 MCP。要创建图形入口，执行 `python shortcuts.py --root D:\codex-memory`；这个命令只创建快捷方式。
+
+### 登录自启
+
+可选启用当前用户登录 Windows 后的后台启动：
+
+```powershell
+python shortcuts.py --root D:\codex-memory --autostart
+```
+
+也可以首次安装时执行 `python -X utf8 install.py --target D:\codex-memory --autostart`。只在当前用户的“启动”文件夹创建本程序快捷方式；登录后不弹出面板，点击桌面或任务栏图标再打开。可在 Windows“设置 → 应用 → 启动”中禁用 Codex Memory。下载或普通安装不会自动替其他用户开启自启。
 
 ### 面板怎么用
 
@@ -268,7 +280,7 @@ npm run test:ui
 | Claude Code / DSH 专用接入 | 配置依据官方文档，尚未在本项目完成各客户端端到端实测 |
 | 其他操作系统、浏览器与模型组合 | 未逐一验证 |
 
-以上命令在源码目录执行。原生窗口验证可单独在 Windows 运行：安装仅测试使用的 Pillow，设置 `RUN_NATIVE_WINDOW_TEST=1` 后执行 `python -X utf8 -m unittest test_native_window -v`。使用临时空资料，保存完整、未经裁剪的窗口截图，检查独立配置冷启动只有一个页面窗口、浅深色标题区实际像素、缩放后的按钮安全区、最大化与还原，以及重复打开和关闭后重开；不读取真实记忆。
+以上命令在源码目录执行。原生窗口验证可单独在 Windows 运行：安装仅测试使用的 Pillow，设置 `RUN_NATIVE_WINDOW_TEST=1` 后执行 `python -X utf8 -m unittest test_native_window -v`。使用临时空资料与独立的测试应用名，保存完整、未经裁剪的窗口截图，检查独立配置冷启动只有一个页面窗口、浅深色标题区实际像素、缩放后的按钮安全区、最大化与还原、任务栏重启命令，以及重复打开和关闭后重开；不读取真实记忆。
 
 维护时先读 [AGENTS.md](AGENTS.md)。版本变更见 [CHANGELOG.md](CHANGELOG.md)；工具参数见 [USER_GUIDE.md](USER_GUIDE.md)。
 

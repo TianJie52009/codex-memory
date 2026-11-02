@@ -13,9 +13,9 @@ import tomllib
 
 from store import atomic, VERSION
 
-FILES = ('store.py', 'memory.py', 'gui.py', 'native_caption.py', 'shortcuts.py', 'install.py', 'requirements.txt', 'README.md',
+FILES = ('store.py', 'memory.py', 'gui.py', 'native_caption.py', 'windows_taskbar.py', 'shortcuts.py', 'install.py', 'requirements.txt', 'README.md',
          'USER_GUIDE.md', 'GLOBAL_AGENTS.md', 'AGENTS.md', 'CHANGELOG.md', 'test_store.py', 'test_mcp.py',
-         'test_install.py', 'test_gui.py', 'test_native_window.py', '.gitignore', 'ui/index.html', 'ui/style.css', 'ui/app.js',
+         'test_install.py', 'test_gui.py', 'test_native_window.py', 'test_shortcuts.py', '.gitignore', 'ui/index.html', 'ui/style.css', 'ui/app.js',
          'assets/icon.svg', 'assets/icon.ico', 'assets/badges.svg', 'assets/screenshot-light.png', 'assets/screenshot-dark.png', 'assets/screenshot-settings.png')
 START, END = '<!-- codex-memory:start -->', '<!-- codex-memory:end -->'
 
@@ -112,10 +112,11 @@ def main():
     parser = argparse.ArgumentParser(description='从开发目录部署源码并注册本地Codex记忆MCP；不覆盖data')
     parser.add_argument('--target',type=Path,default=Path('D:/codex-memory'))
     parser.add_argument('--codex-home',type=Path,default=Path(os.environ.get('CODEX_HOME',str(Path.home()/'.codex'))))
+    parser.add_argument('--autostart',action='store_true',help='登录Windows后启动后台服务，不弹出面板')
     args = parser.parse_args()
     result=install(Path(__file__).parent,args.target,args.codex_home)
     from shortcuts import create_shortcuts
-    result['gui_shortcuts']=create_shortcuts(args.target)
+    result['gui_shortcuts']=create_shortcuts(args.target,args.autostart)
     print(json.dumps(result,ensure_ascii=False,indent=2))
 
 

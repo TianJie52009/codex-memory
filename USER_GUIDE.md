@@ -6,6 +6,10 @@
 
 图形面板需要Windows和新版Microsoft Edge，使用完整Edge的PWA窗口，不使用WebView2或其他GUI外框；CLI/MCP不依赖Edge。专用配置在data/ui-edge，不使用日常浏览器配置或恢复其标签页。data/gui-port.json保存首选端口，使本地应用地址稳定；端口被占用时会自动改用空闲端口。窗口右上角使用原生最小化、最大化和关闭按钮，顶部空白处可拖动；重复启动会聚焦已有面板。更新后关闭旧版窗口，再从原快捷方式打开。
 
+1.5.1起，关闭面板不再让GUI服务空闲五分钟后退出。任务栏窗口与Python快捷方式使用同一AppUserModelID，重新打开命令指向pythonw启动器；旧版已固定的Edge图标需要取消固定后，从新面板重新固定。若旧Edge窗口占用本程序专用配置，先关闭那些旧记忆窗口再使用桌面入口，不要结束日常浏览器。
+
+用户需要登录自启时运行`python shortcuts.py --root D:\codex-memory --autostart`，或安装时加`--autostart`；仅写当前用户Startup文件夹，登录后后台运行、不弹面板。`gui.py --root D:\codex-memory --background`可仅启动后台；已有同版本后台时不重复启动或打开窗口。Windows设置→应用→启动可停用自启。不要将Startup快捷方式或真实配置上传Git。
+
 数据根目录为`D:\codex-memory`。memory MCP只有一个工具，参数是`action`、`project`和`data`；project传当前项目根的绝对路径，空值只允许召回全局。路径按本机规范化，不同盘/项目不会混合返回。
 
 ## 召回
