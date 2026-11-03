@@ -8,7 +8,7 @@
 
 Inspectable memory. Local files. Shared across harnesses.
 
-<img src="assets/badges.svg" width="470" alt="v1.5.1 · Windows · Python 3.11+ · Local MCP">
+<img src="assets/badges.svg" width="470" alt="v1.5.2 · Windows · Python 3.11+ · Local MCP">
 
 [开始使用](#开始使用) · [Claude Code](#claude-code) · [DeepSeek Harness](#deepseek-harness) · [记忆机制](#记忆机制) · [开发](#开发)
 
@@ -64,6 +64,21 @@ python -X utf8 install.py --target D:\codex-memory
 安装器会保留现有数据、备份改动的文件，并注册 **Codex** 的 MCP 与短使用规则。之后双击桌面 **Codex Memory** 或目标目录内的 **打开记忆面板.lnk** 即可，日常不需要终端。
 
 **只用 Claude Code / DSH，不想写入 Codex 配置：** 将源码解压到固定目录（如 `D:\codex-memory`），在该目录安装 `requirements.txt`，直接按下文注册 MCP。要创建图形入口，执行 `python shortcuts.py --root D:\codex-memory`；这个命令只创建快捷方式。
+
+### 打开记忆面板
+
+安装完成后不需要运行终端，任选一种：
+
+1. 双击桌面上的 **Codex Memory** 快捷方式。
+2. 打开 `D:\codex-memory`，双击 **打开记忆面板.lnk**。
+
+快捷方式会先启动本地后台服务，再打开独立记忆面板。关闭面板不会删除记忆，后台服务会继续运行。如果桌面上没有快捷方式，在安装目录执行：
+
+```powershell
+python -X utf8 shortcuts.py --root D:\codex-memory
+```
+
+需要固定到任务栏时，先通过上面任一入口打开面板，再右键任务栏中的 **Codex Memory** 图标并选择“固定到任务栏”。不要固定临时测试窗口或普通 Edge 页面。
 
 ### 登录自启
 

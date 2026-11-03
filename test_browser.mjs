@@ -35,6 +35,15 @@ try {
   await page.screenshot({path:'assets/screenshot-light.png'});
   await page.locator('#theme-toggle').click();
   await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
+  const themeReveal=await page.evaluate(()=>{
+    const style=getComputedStyle(document.documentElement);
+    return {
+      x:parseFloat(style.getPropertyValue('--theme-x')),
+      y:parseFloat(style.getPropertyValue('--theme-y')),
+      radius:parseFloat(style.getPropertyValue('--theme-radius')),
+    };
+  });
+  assert.ok(themeReveal.x>0 && themeReveal.y>0 && themeReveal.radius>0);
   await page.waitForFunction(()=>[...document.querySelectorAll('#theme-toggle svg')].some(el=>el.getAnimations().some(effect=>effect.playState==='running')));
   await settled();
   await page.screenshot({path:'assets/screenshot-dark.png'});

@@ -157,20 +157,30 @@ function applyAppearance(value, epoch=++appearanceEpoch) {
   if (!wasReady) requestAnimationFrame(()=>{moveIndicator();requestAnimationFrame(()=>root.dataset.ready='true');});
 }
 let themeTransition;
-function changeAppearance(value, reveal=false) {
+function themeRevealOrigin(element) {
+  const box=element?.getBoundingClientRect?.();
+  const x=box ? box.left+box.width/2 : innerWidth/2;
+  const y=box ? box.top+box.height/2 : 0;
+  const radius=Math.hypot(Math.max(x,innerWidth-x),Math.max(y,innerHeight-y));
+  root.style.setProperty('--theme-x',x+'px');
+  root.style.setProperty('--theme-y',y+'px');
+  root.style.setProperty('--theme-radius',radius+'px');
+}
+function changeAppearance(value, reveal=false, origin=null) {
   const epoch=++appearanceEpoch;
   preferences={...value};
   const update=()=>applyAppearance(value,epoch);
   themeTransition?.skipTransition();
   if (reveal && appearanceReady && motionAllowed() && document.startViewTransition) {
+    themeRevealOrigin(origin);
     themeTransition=document.startViewTransition(update);
     themeTransition.ready.catch(()=>{});
     themeTransition.updateCallbackDone.catch(report);
     themeTransition.finished.catch(()=>{});
   } else update();
 }
-function savePreferences(patch, reveal=false) {
-  changeAppearance({...preferences,...patch},reveal);
+function savePreferences(patch, reveal=false, origin=null) {
+  changeAppearance({...preferences,...patch},reveal,origin);
   preferencePending++; $('settings-saved').textContent='保存中…';
   preferenceQueue=preferenceQueue.catch(()=>{}).then(()=>api('preferences',patch));
   return preferenceQueue.then(()=>{
@@ -442,13 +452,13 @@ document.addEventListener('keydown', event => {
     event.preventDefault(); delete document.body.dataset.detail; $('search').focus(); $('search').select();
   }
 });
-$('theme-toggle').addEventListener('click', perform(()=>{
+$('theme-toggle').addEventListener('click', perform(event=>{
   const dark=preferences.theme==='dark' || (preferences.theme==='system' && systemTheme.matches);
-  return savePreferences({theme:dark?'light':'dark'},true);
+  return savePreferences({theme:dark?'light':'dark'},true,event.currentTarget);
 }));
 $('appearance').addEventListener('click',perform(event=>{
   const button=event.target.closest('[data-theme-value]');
-  if (button) return savePreferences({theme:button.dataset.themeValue},true);
+  if (button) return savePreferences({theme:button.dataset.themeValue},true,button);
 }));
 $('accent-presets').addEventListener('click',perform(event=>{
   const button=event.target.closest('[data-accent]');
