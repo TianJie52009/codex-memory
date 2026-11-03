@@ -16,7 +16,7 @@ class WindowCaption:
         self.profile=Path(profile);self.process=None;self.target=None;self.session=None
         self.reader=None;self.writer=None;self.responses=queue.Queue();self.sequence=0
         self.lock=threading.Lock();self.command_lock=threading.Lock();self.overlay=False
-        self.connected=threading.Event();self.hwnd=None
+        self.connected=threading.Event();self.hwnd=None;self.fallback=False
 
     def _find_edge(self):
         for variable in ('ProgramFiles(x86)','ProgramFiles','LOCALAPPDATA'):
@@ -92,9 +92,25 @@ class WindowCaption:
                 except (OSError,RuntimeError) as error:
                     if self.connected.is_set():raise
                     self.close()
-                    if attempt:raise RuntimeError('浏览器连接未建立；请关闭旧的 Edge 记忆窗口后，从“打开记忆面板”重新打开。') from error
+                    if attempt:
+                        try:return self._fallback_open(url)
+                        except Exception as fallback_error:
+                            raise RuntimeError('浏览器连接未建立，Edge 应用模式也无法打开；请从“打开记忆面板”重试。') from fallback_error
+
+    def _fallback_open(self,url):
+        browser=self._find_edge()
+        self.profile.mkdir(parents=True,exist_ok=True)
+        import ctypes
+        args=['--user-data-dir='+str(self.profile),'--app='+url,'--no-first-run','--no-default-browser-check',
+              '--disable-sync','--disable-background-mode','--disable-session-crashed-bubble']
+        result=ctypes.windll.shell32.ShellExecuteW(None,'open',str(browser),subprocess.list2cmdline(args),str(self.profile),1)
+        if result<=32:raise OSError('Edge 应用窗口启动失败，ShellExecute 代码 '+str(result))
+        self.process=None
+        self.fallback=True;self.target='edge-app'
 
     def _open(self,url,base):
+        if self.fallback:
+            self._fallback_open(url);return
         if self.process is None or self.process.poll() is not None or not self.connected.is_set():
             self.close()
             try:self._start()
@@ -128,8 +144,9 @@ class WindowCaption:
             if stream:
                 try:stream.close()
                 except OSError:pass
-        self.writer=None;self.reader=None;self.target=None;self.session=None
+        self.writer=None;self.reader=None;self.target=None;self.session=None;self.fallback=False
         self.connected.clear()
 
     def status(self):
-        return {'engine':'Microsoft Edge PWA','opened':bool(self.target) and self.connected.is_set(),'overlay':self.overlay}
+        opened=bool(self.target) and (self.connected.is_set() or self.fallback)
+        return {'engine':'Microsoft Edge PWA','opened':opened,'fallback':self.fallback,'overlay':self.overlay}

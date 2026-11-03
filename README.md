@@ -8,7 +8,7 @@
 
 Inspectable memory. Local files. Shared across harnesses.
 
-<img src="assets/badges.svg" width="470" alt="v1.5.2 · Windows · Python 3.11+ · Local MCP">
+<img src="assets/badges.svg" width="470" alt="v1.5.3 · Windows · Python 3.11+ · Local MCP">
 
 [开始使用](#开始使用) · [Claude Code](#claude-code) · [DeepSeek Harness](#deepseek-harness) · [记忆机制](#记忆机制) · [开发](#开发)
 
@@ -44,7 +44,7 @@ Inspectable memory. Local files. Shared across harnesses.
 
 ## 开始使用
 
-**图形面板需要 Windows、Python 3.11+ 和已安装的新版 Microsoft Edge。** 使用完整 Edge 的 PWA 窗口，采用官方[窗口控件叠加模式](https://learn.microsoft.com/en-us/microsoft-edge/progressive-web-apps/how-to/window-controls-overlay)，让内容与标题栏合为一体，并为原生窗口按钮预留空间。支持拖动、最小化、最大化及关闭；不使用 WebView2、Electron、Qt 或 Tk 外框。它仍然运行浏览器进程，内存占用取决于实际使用情况。CLI / MCP 不依赖 Edge。
+**图形面板需要 Windows、Python 3.11+ 和已安装的新版 Microsoft Edge。** 优先使用完整 Edge 的 PWA 窗口，采用官方[窗口控件叠加模式](https://learn.microsoft.com/en-us/microsoft-edge/progressive-web-apps/how-to/window-controls-overlay)，让内容与标题栏合为一体，并为原生窗口按钮预留空间。若当前 Edge 环境关闭了本地调试管道，会在同一独立 `ui-edge` 配置中回退为 Edge 应用窗口；不开放远程调试端口。支持拖动、最小化、最大化及关闭；不使用 WebView2、Electron、Qt 或 Tk 外框。它仍然运行浏览器进程，内存占用取决于实际使用情况。CLI / MCP 不依赖 Edge。
 
 面板使用独立配置 `data/ui-edge`，不恢复日常浏览器的窗口、扩展或固定标签页；重复打开会聚焦已有面板。升级会保留现有记忆和界面偏好。更新后关闭旧版窗口，再从原快捷方式打开。
 
